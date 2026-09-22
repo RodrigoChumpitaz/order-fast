@@ -26,6 +26,12 @@ export async function getTableById(id: string) {
   return table;
 }
 
+export async function getTableByNumber(number: number) {
+  const table = await TableModel.findOne({ number, isActive: true });
+  if (!table) throw new NotFoundError("Mesa no encontrada.");
+  return table;
+}
+
 export async function createTable(input: CreateTableInput) {
   try {
     return await TableModel.create({
@@ -67,6 +73,6 @@ export async function deleteTable(id: string) {
 }
 
 export async function generateTableQrPng(table: TableDoc): Promise<Buffer> {
-  const url = `${env.FRONTEND_URL}/mesa/${table._id}`;
+  const url = `${env.FRONTEND_URL}/carta?mesa=${table._id}`;
   return QRCode.toBuffer(url, { type: "png", width: 300, margin: 2 });
 }

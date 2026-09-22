@@ -443,6 +443,36 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/v1/tables/by-number/{number}": {
+      parameters: [
+        {
+          name: "number",
+          in: "path",
+          required: true,
+          schema: { type: "integer", minimum: 1 },
+        },
+      ],
+      get: {
+        tags: ["Mesas"],
+        summary: "Obtener una mesa por su número (público, usado cuando el cliente escribe el número de su mesa)",
+        security: [],
+        responses: {
+          "200": {
+            description: "Mesa encontrada",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { success: { type: "boolean" }, data: { $ref: "#/components/schemas/Table" } },
+                },
+              },
+            },
+          },
+          "404": errorResponse("Mesa no encontrada."),
+          "422": errorResponse("Datos de entrada inválidos"),
+        },
+      },
+    },
     "/api/v1/tables/{id}": {
       parameters: [{ $ref: "#/components/parameters/IdParam" }],
       get: {
@@ -554,10 +584,22 @@ export const openApiDocument = {
               enum: ["PENDING", "CONFIRMED", "PREPARING", "READY", "DELIVERED", "CANCELLED", "REFUNDED"],
             },
           },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, default: 1 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+          },
         ],
         responses: {
           "200": {
-            description: "Lista de pedidos",
+            description: "Lista paginada de pedidos",
             content: {
               "application/json": {
                 schema: {
@@ -565,6 +607,15 @@ export const openApiDocument = {
                   properties: {
                     success: { type: "boolean" },
                     data: { type: "array", items: { $ref: "#/components/schemas/Order" } },
+                    meta: {
+                      type: "object",
+                      properties: {
+                        page: { type: "integer" },
+                        limit: { type: "integer" },
+                        total: { type: "integer" },
+                        totalPages: { type: "integer" },
+                      },
+                    },
                   },
                 },
               },

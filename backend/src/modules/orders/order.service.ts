@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { waitUntil } from "@vercel/functions";
 import { OrderModel, type OrderType } from "./order.model";
 import { TableModel } from "../tables/table.model";
 import { ProductModel } from "../products/product.model";
@@ -41,10 +42,12 @@ const STATUS_MESSAGES: Record<OrderStatus, string> = {
 };
 
 export async function createOrder(input: CreateOrderInput, user?: UserDoc) {
-  if (!user && !input.guestName) {
+  const isCustomerSelfOrder = !!user && user.role === "CUSTOMER";
+
+  if (!isCustomerSelfOrder && !input.guestName) {
     throw new BusinessRuleError("El campo 'guestName' es obligatorio para pedidos sin iniciar sesión.");
   }
-  if (input.couponCode && !user) {
+  if (input.couponCode && !isCustomerSelfOrder) {
     throw new BusinessRuleError("Debes iniciar sesión para usar un cupón.");
   }
 
@@ -63,7 +66,7 @@ export async function createOrder(input: CreateOrderInput, user?: UserDoc) {
     if (!product) throw new NotFoundError(`Producto ${item.product} no encontrado.`);
     if (!product.isAvailable) throw new BusinessRuleError(`El producto '${product.name}' no está disponible.`);
     if (product.stock !== null && product.stock !== undefined && product.stock < item.quantity) {
-      throw new BusinessRuleError(`Stock insuficiente para '${product.name}'.`);
+      throw new BusinessRuleError(`Ya no tenemos suficientes unidades de '${product.name}' disponibles ahora mismo. Reduce la cantidad e inténtalo de nuevo.`);
     }
     return {
       product: product._id,
@@ -104,16 +107,16 @@ export async function createOrder(input: CreateOrderInput, user?: UserDoc) {
           { $inc: { stock: -item.quantity } },
           { session, new: true },
         );
-        if (!updated) throw new BusinessRuleError(`Stock insuficiente para '${product.name}'.`);
+        if (!updated) throw new BusinessRuleError(`Ya no tenemos suficientes unidades de '${product.name}' disponibles ahora mismo. Reduce la cantidad e inténtalo de nuevo.`);
       }
     }
 
     const [order] = await OrderModel.create(
       [
         {
-          customer: user?._id ?? null,
-          guestName: user ? "" : input.guestName,
-          guestPhone: user ? "" : (input.guestPhone ?? ""),
+          customer: isCustomerSelfOrder ? user!._id : null,
+          guestName: isCustomerSelfOrder ? "" : input.guestName,
+          guestPhone: isCustomerSelfOrder ? "" : (input.guestPhone ?? ""),
           type: input.type,
           table: table?._id ?? null,
           items,
@@ -143,12 +146,12 @@ export async function createOrder(input: CreateOrderInput, user?: UserDoc) {
 
     await session.commitTransaction();
 
-    try {
-      await broadcastRealtimeEvent(ORDERS_REALTIME_TOPIC, "new_order", {
+    waitUntil(
+      broadcastRealtimeEvent(ORDERS_REALTIME_TOPIC, "new_order", {
         orderId: order._id.toString(),
         type: order.type,
-      });
-    } catch {}
+      }).catch(() => {}),
+    );
 
     return order;
   } catch (error) {
@@ -159,14 +162,25 @@ export async function createOrder(input: CreateOrderInput, user?: UserDoc) {
   }
 }
 
-export async function listOrders(filters: { status?: OrderStatus }) {
+export async function listOrders(filters: { status?: OrderStatus; page?: number; limit?: number }) {
   const query: Record<string, unknown> = {};
   if (filters.status) query.status = filters.status;
-  return OrderModel.find(query)
-    .populate("table")
-    .populate("customer")
-    .populate("items.product")
-    .sort({ createdAt: -1 });
+
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 20;
+
+  const [orders, total] = await Promise.all([
+    OrderModel.find(query)
+      .populate("table")
+      .populate("customer")
+      .populate("items.product")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    OrderModel.countDocuments(query),
+  ]);
+
+  return { orders, total, page, limit };
 }
 
 export async function getOrderById(id: string) {
@@ -242,23 +256,25 @@ export async function transitionOrder(
     await session.commitTransaction();
 
     if (order.customer) {
-      try {
-        await notificationService.createNotification(
-          order.customer,
-          "ORDER_UPDATED",
-          "Pedido actualizado",
-          STATUS_MESSAGES[nextStatus],
-          order._id,
-        );
-      } catch {}
+      waitUntil(
+        notificationService
+          .createNotification(
+            order.customer,
+            "ORDER_UPDATED",
+            "Pedido actualizado",
+            STATUS_MESSAGES[nextStatus],
+            order._id,
+          )
+          .catch(() => {}),
+      );
     }
 
-    try {
-      await broadcastRealtimeEvent(ORDERS_REALTIME_TOPIC, "order_status_changed", {
+    waitUntil(
+      broadcastRealtimeEvent(ORDERS_REALTIME_TOPIC, "order_status_changed", {
         orderId: order._id.toString(),
         status: nextStatus,
-      });
-    } catch {}
+      }).catch(() => {}),
+    );
 
     return order;
   } catch (error) {

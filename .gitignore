@@ -7,3 +7,4 @@ build
 *.log
 .vercel
 .DS_Store
+/docs/PLAN_DOCUMENTACION_AVANCE.md

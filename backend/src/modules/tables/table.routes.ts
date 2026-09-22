@@ -2,12 +2,18 @@ import { Router } from "express";
 import { requireAuth, requireRole } from "../auth/auth.middleware";
 import { validate } from "../../shared/middlewares/validate";
 import { idParamSchema } from "../../shared/validation/common.schemas";
-import { createTableSchema, updateTableSchema } from "./table.schemas";
+import { createTableSchema, tableNumberParamSchema, updateTableSchema } from "./table.schemas";
 import * as tableController from "./table.controller";
 
 export const tableRouter = Router();
 
 tableRouter.get("/", requireAuth, requireRole("STAFF", "ADMIN"), tableController.list);
+
+tableRouter.get(
+  "/by-number/:number",
+  validate(tableNumberParamSchema, "params"),
+  tableController.getByNumber,
+);
 
 tableRouter.get("/:id", validate(idParamSchema, "params"), tableController.getById);
 

@@ -10,8 +10,12 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
-  const orders = await orderService.listOrders({ status: req.query.status as OrderStatus | undefined });
-  ok(res, orders);
+  const { orders, total, page, limit } = await orderService.listOrders({
+    status: req.query.status as OrderStatus | undefined,
+    page: req.query.page ? Number(req.query.page) : undefined,
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+  });
+  ok(res, orders, "OK", 200, { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) });
 });
 
 export const waitEstimate = asyncHandler(async (_req: Request, res: Response) => {

@@ -6,6 +6,10 @@ export const createTableSchema = z.object({
   capacity: z.number().int().min(1).optional(),
 });
 
+export const tableNumberParamSchema = z.object({
+  number: z.coerce.number().int().min(1),
+});
+
 export const updateTableSchema = z.object({
   number: z.number().int().min(1).optional(),
   capacity: z.number().int().min(1).optional(),

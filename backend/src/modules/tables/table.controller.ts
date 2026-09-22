@@ -13,6 +13,11 @@ export const getById = asyncHandler(async (req: Request, res: Response) => {
   ok(res, table);
 });
 
+export const getByNumber = asyncHandler(async (req: Request, res: Response) => {
+  const table = await tableService.getTableByNumber(Number(req.params.number));
+  ok(res, table);
+});
+
 export const create = asyncHandler(async (req: Request, res: Response) => {
   const table = await tableService.createTable(req.body);
   ok(res, table, "Mesa creada", 201);
