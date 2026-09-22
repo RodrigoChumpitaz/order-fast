@@ -52,6 +52,16 @@ export function TablesAdminPage() {
     onError: (error) => showToast(apiErrorMessage(error), "error"),
   });
 
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Table["status"] }) => updateTable(id, { status }),
+    onSuccess: invalidate,
+    onError: (error) => showToast(apiErrorMessage(error), "error"),
+  });
+
+  function toggleStatus(table: Table) {
+    statusMutation.mutate({ id: table._id, status: table.status === "FREE" ? "OCCUPIED" : "FREE" });
+  }
+
   function openCreateModal() {
     setEditingId(null);
     setForm(EMPTY_FORM);
@@ -128,13 +138,16 @@ export function TablesAdminPage() {
                   <td className="px-4 py-3 font-medium text-ink">Mesa {table.number}</td>
                   <td className="px-4 py-3 text-muted">{table.capacity}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold text-white ${
+                    <button
+                      onClick={() => toggleStatus(table)}
+                      disabled={statusMutation.isPending}
+                      title="Cambiar estado"
+                      className={`rounded-full px-3 py-1 text-xs font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-50 ${
                         table.status === "FREE" ? "bg-status-delivered" : "bg-status-preparing"
                       }`}
                     >
                       {table.status === "FREE" ? "Libre" : "Ocupada"}
-                    </span>
+                    </button>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">

@@ -1,5 +1,5 @@
 import { api, type ApiSuccess } from "@/lib/api";
-import type { Category, Product, Table } from "@/types";
+import type { Category, Product, Table, TableStatus } from "@/types";
 
 export interface CategoryInput {
   name: string;
@@ -46,6 +46,7 @@ export async function deleteProduct(id: string): Promise<void> {
 export interface TableInput {
   number: number;
   capacity?: number;
+  status?: TableStatus;
 }
 
 export async function fetchTables(): Promise<Table[]> {
