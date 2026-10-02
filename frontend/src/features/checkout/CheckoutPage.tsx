@@ -105,7 +105,14 @@ export function CheckoutPage() {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-ink">Teléfono (opcional)</label>
-            <Input value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="999 999 999" />
+            <Input
+              type="tel"
+              inputMode="numeric"
+              maxLength={9}
+              value={guestPhone}
+              onChange={(e) => setGuestPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
+              placeholder="999999999"
+            />
           </div>
         </div>
       )}
